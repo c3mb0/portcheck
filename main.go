@@ -28,50 +28,24 @@ func main() {
 		flag.Usage()
 		os.Exit(1)
 	}
-	var nc net.Conn
-	var err error
-	fn := func(code int) {
-		nc.Close()
-		os.Exit(code)
-	}
 	if !opts.wait {
-		nc, err = dial()
-		if err != nil {
-			os.Exit(1)
-		}
-		if isOpen(nc) {
-			fn(0)
-		}
-		fn(1)
+		os.Exit(isOpen())
 	}
-	for {
-		nc, err = dial()
-		if err == nil {
-			break
-		}
-		time.Sleep(time.Second)
-	}
-	for {
-		if isOpen(nc) {
-			fn(0)
-		}
+	for isOpen() != 0 {
 		time.Sleep(time.Second)
 	}
 }
 
-func dial() (net.Conn, error) {
+func isOpen() int {
 	nc, err := net.Dial("tcp", fmt.Sprintf("%s:%d", opts.address, opts.port))
 	if err != nil {
-		return nil, err
+		return 1
 	}
+	defer nc.Close()
 	nc.SetReadDeadline(time.Now().Add(time.Second))
-	return nc, nil
-}
-
-func isOpen(nc net.Conn) bool {
-	_, err := nc.Read(make([]byte, 1))
+	_, err = nc.Read(make([]byte, 1))
 	if e, ok := err.(*net.OpError); err == nil || (ok && e.Timeout()) {
-		return true
+		return 0
 	}
-	return false
+	return 1
 }
